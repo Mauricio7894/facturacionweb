@@ -1,13 +1,12 @@
-from flask import Flask, render_template, request, redirect, send_file
+from flask import Flask, render_template, request, redirect
 import sqlite3
 import pandas as pd
-from datetime import datetime
 import os
+from datetime import datetime
 
-# Crear instancia de Flask
 app = Flask(__name__)
 
-# Crear base de datos si no existe
+# Crear Base de Datos (por si no existe)
 def init_db():
     conn = sqlite3.connect('facturacion_web.db')
     cursor = conn.cursor()
@@ -19,69 +18,57 @@ def init_db():
             negocio TEXT,
             registro TEXT,
             mes INTEGER,
-            anio INTEGER,
+            año INTEGER,
             monto REAL
         )
     ''')
     conn.commit()
     conn.close()
 
-# Ejecutar creación de base de datos
-init_db()
-
-# Página de Inicio
+# Página de Inicio 🚀
 @app.route('/')
 def home():
-    return render_template('home.html')
-# Página principal (Formulario)
-@app.route('/')
-def index():
-    return render_template('form.html')
+    return render_template('home.html')  # <--- esta es la página que carga el botón
 
-# Guardar datos que llenamos en el formulario
+# Página: Provisión Agentes (el formulario que ya tienes)
+@app.route('/provision_agentes')
+def provision_agentes():
+    return render_template('provision_agentes.html')
+
+# Ruta para guardar datos (cuando le das Guardar en el formulario)
 @app.route('/guardar', methods=['POST'])
 def guardar():
-    iata = request.form['iata'].upper()
-    agt = request.form['agt'].upper()
-    negocio = request.form['negocio'].upper()
+    # Tu código para guardar datos en SQLite
+    iata = request.form['iata']
+    agt = request.form['agt']
+    negocio = request.form['negocio']
     registro = request.form['registro']
-    mes = int(request.form['mes'])
-    anio = int(request.form['anio'])
-    monto = float(request.form['monto'])
-
-    # Si es factura, monto en negativo
-    if registro == "Factura":
-        monto = -abs(monto)
-    else:
-        monto = abs(monto)
+    mes = request.form['mes']
+    año = request.form['año']
+    monto = request.form['monto']
 
     conn = sqlite3.connect('facturacion_web.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO facturacion (iata, agt, negocio, registro, mes, anio, monto)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (iata, agt, negocio, registro, mes, anio, monto))
+    cursor.execute('INSERT INTO facturacion (iata, agt, negocio, registro, mes, año, monto) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+                   (iata, agt, negocio, registro, mes, año, monto))
     conn.commit()
     conn.close()
 
-    return redirect('/')
+    return redirect('/provision_agentes')  # Redirige después de guardar
 
-# Exportar los datos a Excel
+# Ruta para exportar el reporte
 @app.route('/exportar')
 def exportar():
     conn = sqlite3.connect('facturacion_web.db')
     df = pd.read_sql_query('SELECT * FROM facturacion', conn)
     conn.close()
 
-    if df.empty:
-        return "No hay datos para exportar."
+    output_file = f"reporte_facturacion_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    df.to_excel(output_file, index=False)
 
-    fecha_hoy = datetime.today().strftime('%Y-%m-%d')
-    filename = f'reporte_facturacion_{fecha_hoy}.xlsx'
-    df.to_excel(filename, index=False)
+    return f"Reporte generado: {output_file}"
 
-    return send_file(filename, as_attachment=True)
-
-# Ejecutar app
+# Inicializar la base de datos
 if __name__ == '__main__':
-    app.run(debug=True)
+    init_db()
+    app.run(host='0.0.0.0', port=10000)
