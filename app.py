@@ -29,6 +29,10 @@ def init_db():
 # Ejecutar creación de base de datos
 init_db()
 
+# Página de Inicio
+@app.route('/')
+def home():
+    return render_template('home.html')
 # Página principal (Formulario)
 @app.route('/')
 def index():
